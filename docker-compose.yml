@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: linkshortener-app-dev
+    container_name: linkshortener_app_compose
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      - APP_PORT=8080
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=usr
+      - POSTGRES_PASSWORD=pwd
+      - POSTGRES_DB=linkshortener_db
+    restart: unless-stopped
+
+
+  db:
+    image: postgres:15-alpine
+    container_name: linkshortener_db_compose
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: usr
+      POSTGRES_PASSWORD: pwd
+      POSTGRES_DB: linkshortener_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
