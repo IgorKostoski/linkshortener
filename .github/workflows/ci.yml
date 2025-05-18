@@ -1,0 +1,26 @@
+name: Go CI
+
+on:
+  push:
+    branches: [ "main" ] # Runs on pushes to the main branches-ignore:
+  pull_request: [ "main" ] # Runs on pull request targeting the main branch
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout/checkout@v4 # Action to get your code into the runner
+
+
+      - name: Set up Go
+        uses: actions/setup-go@v5 # Action to install a specific Go version
+        with:
+          go-version: '1.21' # Specify your Go version (match your local or desired)
+
+      - name: Build
+        run: go build -v ./... # Build  the application
+
+      - name: Test
+        run: go test -v ./... # Run tests (will pass for now)
