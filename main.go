@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	_ "github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
