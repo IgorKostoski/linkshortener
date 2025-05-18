@@ -75,8 +75,8 @@ func shortenHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with the short URL
 	fullShortURL := fmt.Sprintf("http://localhost:8080/%s", finalShortCode)
-	w.Header().Set("Content-Type", "text/plain") // Important for curl to display it as plain text
-	fmt.Fprintf(w, fullShortURL)
+	w.Header().Set("Content-Type", "text/plain")
+	io.WriteString(w, fullShortURL)
 }
 
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,9 +87,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 
 	shortCode := r.URL.Path[1:]
 	if shortCode == "" {
-		// If path is just "/", treat as not found or serve a homepage
-		// For now, we assume any path other than /shorten is a shortCode attempt
-		// If you want a specific homepage for "/", handle it before this.
+
 		if r.URL.Path == "/" {
 			http.Error(w, "Welcome! Use /shorten to create a link.", http.StatusOK)
 			return
