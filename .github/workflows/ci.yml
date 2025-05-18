@@ -2,8 +2,9 @@ name: Go CI
 
 on:
   push:
-    branches: [ "main" ] # Runs on pushes to the main branches-ignore:
-  pull_request: [ "main" ] # Runs on pull request targeting the main branch
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build-and-test:
@@ -11,16 +12,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout/checkout@v4 # Action to get your code into the runner
-
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v5 # Action to install a specific Go version
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21' # Specify your Go version (match your local or desired)
+          go-version: '1.21' # Make sure this is a valid Go version
 
       - name: Build
-        run: go build -v ./... # Build  the application
+        run: go build -v ./...
 
       - name: Test
-        run: go test -v ./... # Run tests (will pass for now)
+        run: go test -v ./...
