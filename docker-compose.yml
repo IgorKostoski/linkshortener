@@ -1,25 +1,24 @@
-version: '3.8'
+# version: '3.8' # REMOVE THIS LINE
 
 services:
-  
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: linkshortener-app-dev
+    image: linkshortener-app-dev # You can name the image built by compose
     container_name: linkshortener_app_compose
     ports:
-      - "8080:8080"
+      - "8080:8080" # Map host port 8080 to container port 8080
     depends_on:
-      - db
+      - db          # Ensures 'db' service starts before 'app'
     environment:
       - APP_PORT=8080
+      - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - POSTGRES_USER=usr
       - POSTGRES_PASSWORD=pwd
       - POSTGRES_DB=linkshortener_db
     restart: unless-stopped
-
 
   db:
     image: postgres:15-alpine
