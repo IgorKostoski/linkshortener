@@ -1,5 +1,3 @@
-
-
 services:
   app:
 
@@ -20,6 +18,7 @@ services:
       - db
     networks:
       - linkshortener_net
+      - monitoring_net
 
   db:
     image: arm64v8/postgres:15
@@ -37,9 +36,50 @@ services:
     networks:
       - linkshortener_net
 
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: prometheus_server
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_server_data:/prometheus
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring_net
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana_server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"   # <-- Fixed
+    volumes:
+      - grafana_server_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring_net
+
+
+
 volumes:
   postgres_server_data:
+  prometheus_server_data:
+  grafana_server_data:
 
 networks:
   linkshortener_net:
+    driver: bridge
+  monitoring_net:
     driver: bridge
