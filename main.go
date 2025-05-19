@@ -4,21 +4,57 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-
-	_ "github.com/lib/pq"
 	"io"
 	"log"
 	"net/http"
 	"os"
-
 	"time"
+
+	_ "github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+// Prometheus metrics
+var (
+	httpRequestsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "linkshortener_http_requests_total",
+			Help: "Total number of HTTP requests",
+		},
+		[]string{"method", "path", "status_code"},
+	)
+	linksCreatedTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "linkshortener_links_created_total",
+			Help: "Total number of links created",
+		},
+	)
+	linksRedirectedTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "linkshortener_links_redirected_total",
+			Help: "Total number of links redirected",
+		},
+		[]string{"short_code"},
+	)
+	httpRequestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "linkshortener_http_request_duration_seconds",
+			Help:    "Duration of HTTP requests.",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"method", "path"},
+	)
 )
 
 var db *sql.DB
 
 type Config struct {
 	AppPort      string
+	ShortURLBase string
 	PostgresHost string
 	PostgresPort string
 	PostgresUser string
@@ -29,6 +65,7 @@ type Config struct {
 func LoadConfig() Config {
 	return Config{
 		AppPort:      getEnv("APP_PORT", "8080"),
+		ShortURLBase: getEnv("SHORT_URL_BASE", "http://localhost:8080"),
 		PostgresHost: getEnv("POSTGRES_HOST", "db"),
 		PostgresPort: getEnv("POSTGRES_PORT", "5432"),
 		PostgresUser: getEnv("POSTGRES_USER", "usr"),
@@ -45,58 +82,42 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// Initialize the database connection
 func initDB(cfg Config) {
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		cfg.PostgresHost, cfg.PostgresPort, cfg.PostgresUser, cfg.PostgresPass, cfg.PostgresDB)
 
 	var err error
-	// Retry connecting to the database a few times
 	for i := 0; i < 5; i++ {
 		db, err = sql.Open("postgres", connStr)
 		if err != nil {
-			log.Printf("Failed to open database connection (attempt %d/5): %v\n", i+1, err)
+			log.Printf("Failed to open DB (attempt %d): %v", i+1, err)
 			time.Sleep(3 * time.Second)
 			continue
 		}
-		err = db.Ping()
-		if err == nil {
-			log.Println("Successfully connected to the database!")
+		if err = db.Ping(); err == nil {
+			log.Println("Connected to DB successfully.")
 			break
 		}
-		log.Printf("Failed to ping database (attempt %d/5): %v\n", i+1, err)
-		if db != nil {
-			db.Close()
-		}
+		log.Printf("Ping failed (attempt %d): %v", i+1, err)
+		db.Close()
 		time.Sleep(3 * time.Second)
 	}
-
 	if err != nil {
-		log.Fatalf("Could not connect to the database after several attempts: %v\n", err)
+		log.Fatalf("Failed to connect to DB: %v", err)
 	}
 
 	createTableSQL := `
-    CREATE TABLE IF NOT EXISTS links (
-        id SERIAL PRIMARY KEY,
-        short_code VARCHAR(10) UNIQUE NOT NULL,
-        long_url TEXT NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );`
+	CREATE TABLE IF NOT EXISTS links (
+		id SERIAL PRIMARY KEY,
+		short_code VARCHAR(10) UNIQUE NOT NULL,
+		long_url TEXT NOT NULL,
+		created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+	);`
 
-	_, err = db.Exec(createTableSQL)
-	if err != nil {
-		log.Fatalf("Failed to create links table: %v\n", err)
+	if _, err := db.Exec(createTableSQL); err != nil {
+		log.Fatalf("Failed to create links table: %v", err)
 	}
-	log.Println("Links table checked/created successfully.")
-
-	log.Println("Attempting to create/check links table...")
-	res, err := db.Exec(createTableSQL)
-	if err != nil {
-		log.Fatalf("Failed to execute create links table statement: %v", err)
-	}
-	rowsAffected, _ := res.RowsAffected() // For CREATE TABLE this might be 0 or driver-dependent
-	log.Printf("Links table statement executed. Rows affected (if applicable): %d", rowsAffected)
-	log.Println("Links table checked/created successfully.")
+	log.Println("Links table initialized.")
 }
 
 func generateShortCode(length int) (string, error) {
@@ -107,131 +128,133 @@ func generateShortCode(length int) (string, error) {
 	return hex.EncodeToString(bytes)[:length], nil
 }
 
-func shortenHandler(w http.ResponseWriter, r *http.Request, cfg Config) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
+func shortenHandler(cfg Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		statusCode := http.StatusOK
+		defer func() {
+			httpRequestsTotal.WithLabelValues(r.Method, "/shorten", fmt.Sprintf("%d", statusCode)).Inc()
+			httpRequestDuration.WithLabelValues(r.Method, "/shorten").Observe(time.Since(start).Seconds())
+		}()
 
-	body, err := io.ReadAll(r.Body) // Renamed to 'err' to avoid confusion with 'codeErr'
-	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusInternalServerError)
-		return
-	}
-	defer r.Body.Close()
-
-	longURL := string(body)
-	if longURL == "" {
-		http.Error(w, "URL cannot be empty", http.StatusBadRequest)
-		return
-	}
-
-	var shortCode string
-	var generated bool // Renamed from 'generated'
-	// Loop to generate a unique short code
-	for i := 0; i < 5; i++ {
-		var currentShortCode string
-		var genErr error // Use a distinct error variable for generation
-		currentShortCode, genErr = generateShortCode(6)
-		if genErr != nil {
-			log.Printf("Error generating short code: %v", genErr) // Log the error
-			http.Error(w, "Failed to generate short code", http.StatusInternalServerError)
+		if r.Method != http.MethodPost {
+			statusCode = http.StatusMethodNotAllowed
+			http.Error(w, "Invalid request method", statusCode)
 			return
 		}
 
-		// Check if shortCode already exists in DB
-		var exists bool
-		// Use 'err' for the database query error, distinct from 'genErr'
-		queryErr := db.QueryRow("SELECT EXISTS(SELECT 1 FROM links WHERE short_code = $1)", currentShortCode).Scan(&exists)
-		if queryErr != nil {
-			log.Printf("Error checking if short code '%s' exists: %v", currentShortCode, queryErr)
-			// Decide if you want to retry or fail here. Retrying is reasonable for transient DB issues.
-			// If you continue, the loop will try to generate a new code.
-			continue
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			statusCode = http.StatusInternalServerError
+			http.Error(w, "Failed to read request", statusCode)
+			return
+		}
+		defer r.Body.Close()
+
+		longURL := string(body)
+		if longURL == "" {
+			statusCode = http.StatusBadRequest
+			http.Error(w, "URL cannot be empty", statusCode)
+			return
 		}
 
-		if !exists {
-			shortCode = currentShortCode // Assign to the outer scope shortCode
-			generated = true
-			break // Exit loop, unique code found
+		var shortCode string
+		for i := 0; i < 5; i++ {
+			candidate, err := generateShortCode(6)
+			if err != nil {
+				statusCode = http.StatusInternalServerError
+				http.Error(w, "Failed to generate short code", statusCode)
+				return
+			}
+
+			var exists bool
+			err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM links WHERE short_code = $1)", candidate).Scan(&exists)
+			if err != nil {
+				log.Printf("DB error checking short code: %v", err)
+				continue
+			}
+			if !exists {
+				shortCode = candidate
+				break
+			}
 		}
-		// If code exists, loop continues to generate a new one
-	}
 
-	if !generated || shortCode == "" { // Check if a code was successfully generated and assigned
-		http.Error(w, "Could not generate a unique short code after several attempts, try again.", http.StatusInternalServerError)
-		return
-	}
+		if shortCode == "" {
+			statusCode = http.StatusInternalServerError
+			http.Error(w, "Could not generate a unique short code", statusCode)
+			return
+		}
 
-	// Insert into database
-	insertSQL := `INSERT INTO links (short_code, long_url) VALUES ($1, $2)`
-	_, err = db.Exec(insertSQL, shortCode, longURL) // Re-use 'err' for this operation
-	if err != nil {
-		log.Printf("Error inserting link (short_code: %s) into database: %v", shortCode, err)
-		http.Error(w, "Failed to store link", http.StatusInternalServerError)
-		return
-	}
+		_, err = db.Exec("INSERT INTO links (short_code, long_url) VALUES ($1, $2)", shortCode, longURL)
+		if err != nil {
+			statusCode = http.StatusInternalServerError
+			log.Printf("DB insert error: %v", err)
+			http.Error(w, "Failed to store link", statusCode)
+			return
+		}
 
-	log.Printf("Shortened: %s -> %s\n", shortCode, longURL)
-	fullShortURL := fmt.Sprintf("http://localhost:%s/%s", cfg.AppPort, shortCode)
-	w.Header().Set("Content-Type", "text/plain")
-	io.WriteString(w, fullShortURL)
+		linksCreatedTotal.Inc()
+		shortURL := fmt.Sprintf("%s/%s", cfg.ShortURLBase, shortCode)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"short_url": shortURL})
+	}
 }
 
-// Handler for redirecting a short URL
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	statusCode := http.StatusFound
+	path := r.URL.Path
+	shortCode := path[1:]
+
+	defer func() {
+		httpRequestsTotal.WithLabelValues(r.Method, path, fmt.Sprintf("%d", statusCode)).Inc()
+		httpRequestDuration.WithLabelValues(r.Method, path).Observe(time.Since(start).Seconds())
+	}()
+
 	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		statusCode = http.StatusMethodNotAllowed
+		http.Error(w, "Invalid request method", statusCode)
 		return
 	}
 
-	shortCode := r.URL.Path[1:]
-
-	if shortCode == "" {
-
-		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintln(w, "Welcome to the Link Shortener API! Use POST /shorten to create a link.")
-		return
-	}
-	if shortCode == "favicon.ico" {
+	if shortCode == "" || shortCode == "favicon.ico" || shortCode == "metrics" {
+		statusCode = http.StatusNotFound
 		http.NotFound(w, r)
 		return
 	}
 
 	var longURL string
-	querySQL := `SELECT long_url FROM links WHERE short_code = $1`
-	err := db.QueryRow(querySQL, shortCode).Scan(&longURL)
-
+	err := db.QueryRow("SELECT long_url FROM links WHERE short_code = $1", shortCode).Scan(&longURL)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Printf("Short code not found: %s\n", shortCode)
+			statusCode = http.StatusNotFound
 			http.NotFound(w, r)
 		} else {
-			log.Printf("Error retrieving link from database for short_code '%s': %v\n", shortCode, err)
-			http.Error(w, "Error retrieving link", http.StatusInternalServerError)
+			statusCode = http.StatusInternalServerError
+			log.Printf("DB error on redirect: %v", err)
+			http.Error(w, "Server error", statusCode)
 		}
 		return
 	}
 
-	log.Printf("Redirecting: %s -> %s\n", shortCode, longURL)
+	linksRedirectedTotal.WithLabelValues(shortCode).Inc()
 	http.Redirect(w, r, longURL, http.StatusFound)
 }
 
 func main() {
 	cfg := LoadConfig()
 	initDB(cfg)
-	if db != nil {
-		defer db.Close()
-	}
+	defer db.Close()
 
-	// Pass config to shortenHandler
-	http.HandleFunc("/shorten", func(w http.ResponseWriter, r *http.Request) {
-		shortenHandler(w, r, cfg)
-	})
-	http.HandleFunc("/", redirectHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/shorten", shortenHandler(cfg))
+	mux.HandleFunc("/", redirectHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 
-	log.Printf("Server starting on port %s\n", cfg.AppPort)
-	if err := http.ListenAndServe(":"+cfg.AppPort, nil); err != nil {
-		log.Fatalf("Failed to start server: %s\n", err)
+	log.Printf("Server starting on port %s", cfg.AppPort)
+	log.Printf("Metrics at http://localhost:%s/metrics", cfg.AppPort)
+
+	if err := http.ListenAndServe(":"+cfg.AppPort, mux); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
 }
