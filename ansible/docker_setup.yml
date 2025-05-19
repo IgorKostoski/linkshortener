@@ -1,0 +1,103 @@
+---
+- name: Setup Docker Server
+  hosts: servers # This targets the 'servers' group from your inventory.ini
+  become: true   # Most of these tasks require sudo/root privileges
+  gather_facts: true # Gathers information about the remote system (useful, default is true)
+
+  vars:
+    # Define the desired Docker Compose version
+    # Check for latest stable release: https://github.com/docker/compose/releases
+    docker_compose_version: "v2.27.0" # Example, update to a recent stable version
+
+  tasks:
+    - name: Update all system packages (AlmaLinux)
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+      # For Alpine Linux (if you were using it), the equivalent would be:
+      # ansible.builtin.apk:
+      #   update_cache: yes
+      #   upgrade: yes
+
+    - name: Install DNF utilities (for adding Docker repo)
+      ansible.builtin.dnf:
+        name: dnf-utils
+        state: present
+
+    - name: Add Docker CE repository
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: '0644'
+
+    - name: Install Docker Engine, CLI, Containerd, and Docker Compose plugin
+      ansible.builtin.dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin # Installs Docker Compose as a CLI plugin
+        state: present
+        update_cache: yes # Ensures DNF cache is updated before installing
+
+    - name: Ensure Docker service is started and enabled on boot
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add current user (mario) to the docker group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}" # ansible_user is 'mario' from inventory
+        groups: docker
+        append: yes
+
+    # --- Alternative Docker Compose Installation (Standalone Binary) ---
+    # The docker-compose-plugin is the modern way.
+    # If you needed a specific standalone version for some reason:
+    #
+    # - name: Download Docker Compose standalone binary
+    #   ansible.builtin.get_url:
+    #     url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-{{ ansible_architecture | lower }}"
+    #     dest: /usr/local/bin/docker-compose
+    #     mode: '0755' # Make it executable
+    #   when: false # Disabled by default, enable if you prefer standalone over plugin
+
+    # - name: Check if Docker Compose (standalone) is executable
+    #   ansible.builtin.stat:
+    #     path: /usr/local/bin/docker-compose
+    #   register: dc_stat
+    #   when: false # Disabled
+
+    # - name: Debug Docker Compose stat
+    #   ansible.builtin.debug:
+    #     var: dc_stat
+    #   when: false # Disabled
+
+    - name: Verify Docker installation
+      ansible.builtin.command: docker --version
+      register: docker_version_output
+      changed_when: false # This command doesn't change state
+
+    - name: Display Docker version
+      ansible.builtin.debug:
+        var: docker_version_output.stdout
+
+    - name: Verify Docker Compose (plugin) installation
+      ansible.builtin.command: docker compose version # Note: 'docker compose' (two words for plugin)
+      register: docker_compose_version_output
+      changed_when: false
+
+    - name: Display Docker Compose version
+      ansible.builtin.debug:
+        var: docker_compose_version_output.stdout
+
+# Handlers are tasks that only run if notified by another task (e.g., if a config file changes)
+# We don't have a strong need for a handler yet in this simple playbook for adding a user.
+# If we were changing /etc/docker/daemon.json, then a handler to restart docker would be essential.
+# handlers:
+#   - name: Restart Docker if user added
+#     ansible.builtin.systemd:
+#       name: docker
+#       state: restarted
