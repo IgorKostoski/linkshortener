@@ -83,5 +83,5 @@ jobs:
 
       - name: Print image digest
         if: success()
-        run:
-        echo "Pushed image digest: ${{ steps.build-and-push.outputs.digest }}"
+        run: |
+          echo "Pushed image digest: ${{ steps.build-and-push.outputs.digest }}"
