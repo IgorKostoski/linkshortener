@@ -1,0 +1,45 @@
+
+
+services:
+  app:
+
+    image: ghcr.io/igorkostoski/linkshortener:main
+    container_name: linkshortener_app_server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+
+    environment:
+      - APP_PORT=8080
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=usr
+      - POSTGRES_PASSWORD=pwd
+      - POSTGRES_DB=linkshortener_db
+    depends_on:
+      - db
+    networks:
+      - linkshortener_net
+
+  db:
+    image: arm64v8/postgres:15
+    container_name: linkshortener_db_server
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: usr
+      POSTGRES_PASSWORD: pwd
+      POSTGRES_DB: linkshortener_db
+
+
+    volumes:
+      - postgres_server_data:/var/lib/postgresql/data
+
+    networks:
+      - linkshortener_net
+
+volumes:
+  postgres_server_data:
+
+networks:
+  linkshortener_net:
+    driver: bridge

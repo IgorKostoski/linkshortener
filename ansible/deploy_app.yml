@@ -1,0 +1,49 @@
+---
+- name: Deploy LinkShortener Application
+  hosts: servers
+  become: true
+  gather_facts: true
+
+  vars:
+    app_deploy_dir: "/opt/linkshortener"
+
+  tasks:
+    - name: Ensure deployment directory exists
+      ansible.builtin.file:
+        path: "{{ app_deploy_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy Docker Compose file to the server
+      ansible.builtin.copy:
+        src: ./files/docker-compose.server.yml # Path relative to ansible dir or project root with files/
+        dest: "{{ app_deploy_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Ensure old application services defined in compose are stopped and removed
+      community.docker.docker_compose_v2: # Use v2 module
+        project_src: "{{ app_deploy_dir }}"
+        state: absent # This will stop and remove services defined in the compose file
+        # remove_orphans: true # Optional: also removes containers not defined in the current compose file but part of the project
+
+    - name: Pull latest images and deploy application stack with Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_deploy_dir }}"
+        pull: always
+        state: present
+        # remove_orphans: true # Optional
+      register: deploy_output
+
+    - name: Display Docker Compose deployment output
+      ansible.builtin.debug:
+        var: deploy_output
+        verbosity: 1
+
+    - name: List running containers (for verification)
+      ansible.builtin.command: docker ps
+      register: running_containers
+      changed_when: false # This command doesn't change state
+
+    - name: Display running containers
+      ansible.builtin.debug:
+        var: running_containers.stdout_lines
