@@ -6,6 +6,15 @@
 
   vars:
     app_deploy_dir: "/opt/linkshortener"
+    app_image: "ghcr.io/igorkostoski/linkshortener:main"
+    # Let's stick with arm64v8/postgres:15 as it's very explicit for arm64
+    db_image: "arm64v8/postgres:15"
+
+  pre_tasks: # Use pre_tasks to ensure it runs before other tasks
+    - name: Ensure Python requests library is installed (for Ansible docker modules)
+      ansible.builtin.dnf:
+        name: python3-requests
+        state: present
 
   tasks:
     - name: Ensure deployment directory exists
@@ -19,6 +28,26 @@
         src: ./files/docker-compose.server.yml # Path relative to ansible dir or project root with files/
         dest: "{{ app_deploy_dir }}/docker-compose.yml"
         mode: '0644'
+
+    - name: Pull application image
+      community.docker.docker_image:
+        name: "{{ app_image }}"
+        source: pull
+        # platform: linux/arm64 # Usually not needed if image is multi-arch and daemon is arm64
+      register: pull_app_result
+      until: pull_app_result is succeeded # Retry if transient network issue
+      retries: 3
+      delay: 5
+
+    - name: Pull database image
+      community.docker.docker_image:
+        name: "{{ db_image }}"
+        source: pull
+        # platform: linux/arm64 # Usually not needed
+      register: pull_db_result
+      until: pull_db_result is succeeded
+      retries: 3
+      delay: 5
 
     - name: Ensure old application services defined in compose are stopped and removed
       community.docker.docker_compose_v2: # Use v2 module

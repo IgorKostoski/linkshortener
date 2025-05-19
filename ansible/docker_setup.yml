@@ -53,6 +53,11 @@
         groups: docker
         append: yes
 
+    - name: Install Python requests library (for Ansible docker modules)
+      ansible.builtin.dnf:
+        name: python3-requests # The package name for requests on AlmaLinux/RHEL
+        state: present
+
     # --- Alternative Docker Compose Installation (Standalone Binary) ---
     # The docker-compose-plugin is the modern way.
     # If you needed a specific standalone version for some reason:
