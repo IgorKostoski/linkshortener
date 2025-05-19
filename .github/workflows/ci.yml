@@ -12,7 +12,6 @@ build-and-push-docker-image:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Add this step to set up Buildx
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
@@ -27,7 +26,8 @@ build-and-push-docker-image:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.IMAGE_NAME }} # ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+        images: ${{ env.IMAGE_NAME }}
+        # CORRECTED INDENTATION FOR THE 'tags' BLOCK:
         tags: |
           type=schedule
           type=ref,event=branch
@@ -37,18 +37,17 @@ build-and-push-docker-image:
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
-      id: build-and-push # Give this step an ID
+      id: build-and-push
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        # Ensure cache settings are still here
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    # (Optional but good practice) Print image digest
     - name: Print image digest
-      if: success() # Only run if the build-and-push step was successful
-      run: echo "Pushed image digest: ${{ steps.build-and-push.outputs.digest }}"
+      if: success()
+      run:
+        echo "Pushed image digest: ${{ steps.build-and-push.outputs.digest }}"
