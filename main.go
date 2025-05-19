@@ -88,6 +88,15 @@ func initDB(cfg Config) {
 		log.Fatalf("Failed to create links table: %v\n", err)
 	}
 	log.Println("Links table checked/created successfully.")
+
+	log.Println("Attempting to create/check links table...")
+	res, err := db.Exec(createTableSQL)
+	if err != nil {
+		log.Fatalf("Failed to execute create links table statement: %v", err)
+	}
+	rowsAffected, _ := res.RowsAffected() // For CREATE TABLE this might be 0 or driver-dependent
+	log.Printf("Links table statement executed. Rows affected (if applicable): %d", rowsAffected)
+	log.Println("Links table checked/created successfully.")
 }
 
 func generateShortCode(length int) (string, error) {
