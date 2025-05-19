@@ -175,7 +175,7 @@ func shortenHandler(w http.ResponseWriter, r *http.Request, cfg Config) {
 	log.Printf("Shortened: %s -> %s\n", shortCode, longURL)
 	fullShortURL := fmt.Sprintf("http://localhost:%s/%s", cfg.AppPort, shortCode)
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintf(w, fullShortURL)
+	io.WriteString(w, fullShortURL)
 }
 
 // Handler for redirecting a short URL
