@@ -39,10 +39,7 @@ jobs:
         run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: SoncarCloud Scan
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || \
-          (github.event_name == 'pull_request' && \
-          secrets.SONAR_TOKEN != '' && \
-          secrets.SONAR_ORGANIZATION != '')
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && secrets.SONAR_TOKEN != '' && secrets.SONAR_ORGANIZATION != '')
 
         uses: SonarSource/sonarcloud-github-action@v2.0.0
         env:
