@@ -61,7 +61,6 @@ jobs:
              -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
   
   
-
   build-and-push-docker-image:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
