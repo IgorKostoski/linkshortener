@@ -10,7 +10,7 @@ on:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
-  SONAR_ORGANIZATION: 'IgorKostoski'
+  SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
   SONAR_PROJECT_KEY: 'IgorKostoski_urlshortner'
 
 
@@ -48,7 +48,7 @@ jobs:
         with:
           args: >
             -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+                    -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
             -Dsonar.sources=.
             -Dsonar.go.coverage.reportPaths=coverage.out
             -Dsonar.host.url=https://sonarcloud.io
