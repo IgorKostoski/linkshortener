@@ -18,6 +18,9 @@ jobs:
   test-and-lint:
     name: Test, Lint and Analyze
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN_IS_SET: ${{ secrets.SONAR_TOKEN != '' }}
+      SONAR_ORGANIZATION_IS_SET: ${{ secrets.SONAR_ORGANIZATION != '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,24 +43,24 @@ jobs:
 
       - name: SoncarCloud Scan
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && env.SONAR_TOKEN_IS_SET == 'true' && env.SONAR_ORGANIZATION_IS_SET == 'true')
-        uses: SonarSource/sonarqube-scan-action@v2.0.0 # Or latest stable
+        uses: SonarSource/sonarqube-scan-action@v2.0.0
         env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-            args: >
-              -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-              -Dsonar.projectKey=${{ secrets.SONAR_ORGANIZATION }}_${{ github.event.repository.name }}
-              -Dsonar.sources=.
-              -Dsonar.go.coverage.reportPaths=coverage.out
-              -Dsonar.host.url=https://sonarcloud.io
-              -Dsonar.branch.name=${{ github.ref_name }}
-              -Dsonar.scm.revision=${{ github.sha }}
-              -Dsonar.pullrequest.provider=github
-              -Dsonar.pullrequest.github.repository=${{ github.repository }}
-              -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-              -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
-              -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
+          args: >
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ secrets.SONAR_ORGANIZATION }}_${{ github.event.repository.name }}
+            -Dsonar.sources=.
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.branch.name=${{ github.ref_name }}
+            -Dsonar.scm.revision=${{ github.sha }}
+            -Dsonar.pullrequest.provider=github
+            -Dsonar.pullrequest.github.repository=${{ github.repository }}
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
+            -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
   
 
   build-and-push-docker-image:
