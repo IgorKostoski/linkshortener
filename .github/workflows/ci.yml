@@ -11,7 +11,7 @@ on:
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
   SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
-  SONAR_PROJECT_KEY: 'IgorKostoski_urlshortner'
+  SONAR_PROJECT_KEY: ${{ secrets.SONAR_ORGANIZATION }}_${{ github.event.repository.name }}
 
 
 jobs:
@@ -47,20 +47,20 @@ jobs:
 
         with:
           args: >
-            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
-                    -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
-            -Dsonar.sources=.
-            -Dsonar.go.coverage.reportPaths=coverage.out
-            -Dsonar.host.url=https://sonarcloud.io
-            -Dsonar.branch.name=${{ github.ref_name }}
-            -Dsonar.scm.revision=${{ github.sha }}
-            -Dsonar.pullrequest.provider=github
-            -Dsonar.pullrequest.github.repository=${{ github.repository }}
-            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
-            -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
-            -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
-            
-            
+            -Dsonar.organization=${{ env.WORKFLOW_SONAR_ORGANIZATION }}
+             -Dsonar.projectKey=${{ env.WORKFLOW_SONAR_PROJECT_KEY }}
+             -Dsonar.sources=.
+             -Dsonar.go.coverage.reportPaths=coverage.out
+             -Dsonar.host.url=https://sonarcloud.io
+             -Dsonar.branch.name=${{ github.ref_name }}
+             -Dsonar.scm.revision=${{ github.sha }}
+             -Dsonar.pullrequest.provider=github
+             -Dsonar.pullrequest.github.repository=${{ github.repository }}
+             -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+             -Dsonar.pullrequest.branch=${{ github.event.pull_request.head.ref }}
+             -Dsonar.pullrequest.base=${{ github.event.pull_request.base.ref }}
+  
+  
 
   build-and-push-docker-image:
     name: Build and Push Docker Image
