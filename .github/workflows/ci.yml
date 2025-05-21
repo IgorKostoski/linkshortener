@@ -51,7 +51,7 @@ jobs:
         with:
           args: >
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ secrets.SONAR_ORGANIZATION }}_${{ github.event.repository.name }}
+            -Dsonar.projectKey=IgorKostoski_linkshortener
             -Dsonar.sources=.
             -Dsonar.go.coverage.reportPaths=coverage.out
       
