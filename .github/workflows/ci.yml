@@ -117,7 +117,50 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+
+
       - name: Print image digest
         if: success()
         run: |
           echo "Pushed image digest: ${{ steps.build-and-push.outputs.digest }}"
+          
+
+  deploy-to-server:
+      name: Deploy to Server (Simulated for Local VM)
+      runs-on: ubuntu-latest
+      needs: build-and-push-docker-image
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+      steps:
+        - name: Checkout repository (for Ansible playbooks)
+          uses: actions.checkout@v4
+
+        - name: Set up Python for Ansible
+          uses: actions/setup-pyhton@v5
+          with:
+            python-version: '3.x'
+
+        - name: Install Ansible
+          run: |
+            python -m pip install --upgrade pip
+            pip install ansible
+            ansible --version
+
+        - name: Create a dummy inventory for local siumlation
+          run: |
+            mkdir -p ansible_ci_temp
+            echo "[servers]" > ansible_ci_temp/inventory.ini
+            echo "localhost anisble_connection=local ansible_python_interpreter=/usr/bin/python3" >> ansible_ci_temp/inventory.ini
+            
+        - name: Run Ansible Playbook (Syntax  Check / Dry Run for Simulation)
+          run: | 
+          echo "Simulating Ansible playbook run. In a real scenario, this would be the remote server."
+          ansible-playbook -i ansible_ci_temp/inventory.ini ansible/deploy_app.yml --syntax-check
+          echo "Ansible playbook ansible/deploy_app.yml would run here."
+          echo "Playbook tasks for deploying app and monitoring stack would execute."
+
+          env:
+            ANSIBLE_HOST_KEY_CHECKING: "False"
+
+        - name: Deployment Simulation Complete
+          run: echo "CD job simulation finshed. Ansible playbook would never deployed the application."
