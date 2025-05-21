@@ -54,8 +54,7 @@ jobs:
             -Dsonar.projectKey=IgorKostoski_linkshortener
             -Dsonar.sources=.
             -Dsonar.go.coverage.reportPaths=coverage.out
-      
-            -Dsonar.host.url=https://sonarcloud.io
+                    -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.scm.revision=${{ github.sha }}
             -Dsonar.pullrequest.provider=github
@@ -133,10 +132,10 @@ jobs:
 
       steps:
         - name: Checkout repository (for Ansible playbooks)
-          uses: actions.checkout@v4
+          uses: actions/checkout@v4
 
         - name: Set up Python for Ansible
-          uses: actions/setup-pyhton@v5
+          uses: actions/setup-python@v5
           with:
             python-version: '3.x'
 
@@ -146,21 +145,22 @@ jobs:
             pip install ansible
             ansible --version
 
-        - name: Create a dummy inventory for local siumlation
+        - name: Create a dummy inventory for local simulation
           run: |
             mkdir -p ansible_ci_temp
             echo "[servers]" > ansible_ci_temp/inventory.ini
-            echo "localhost anisble_connection=local ansible_python_interpreter=/usr/bin/python3" >> ansible_ci_temp/inventory.ini
+            echo "localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3" >> ansible_ci_temp/inventory.ini
             
         - name: Run Ansible Playbook (Syntax  Check / Dry Run for Simulation)
+          env:
+            ANSIBLE_HOST_KEY_CHECKING: "False"
           run: | 
           echo "Simulating Ansible playbook run. In a real scenario, this would be the remote server."
           ansible-playbook -i ansible_ci_temp/inventory.ini ansible/deploy_app.yml --syntax-check
           echo "Ansible playbook ansible/deploy_app.yml would run here."
           echo "Playbook tasks for deploying app and monitoring stack would execute."
 
-          env:
-            ANSIBLE_HOST_KEY_CHECKING: "False"
+
 
         - name: Deployment Simulation Complete
-          run: echo "CD job simulation finshed. Ansible playbook would never deployed the application."
+          run: echo "CD job simulation finished. Ansible playbook would never deployed the application."
