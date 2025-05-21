@@ -41,13 +41,12 @@ jobs:
       - name: Test with Coverage
         run: go test -v -race -coverprofile=coverage.out ./...
 
-      - name: SoncarCloud Scan
+      - name: SonarCloud Scan
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && env.SONAR_TOKEN_IS_SET == 'true' && env.SONAR_ORGANIZATION_IS_SET == 'true')
         uses: SonarSource/sonarqube-scan-action@v2.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: 'https://sonarcloud.io'
         with:
           args: >
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
