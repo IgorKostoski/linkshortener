@@ -241,15 +241,17 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, longURL, http.StatusFound)
 }
 
-func UnusedFunctionPrTest(a, b, c int) int {
-	if (a > 10 && b < 5) || (c == 0 && a == 0) || (b == 1 && c == 1) {
-		return a + b + c
+func UnusedFunctionPRAnalysis(a, b, c int, name string) string {
+	if (a > 10 && b < 5 && len(name) > 0) || (c == 0 && a == 0) || (b == 1 && c == 1) {
+		return fmt.Sprintf("Condition met for  %s", name)
 	}
 
 	if b > 100 {
-		return a * 10
+		return fmt.Sprintf("Condition met for  %s", name)
+
 	}
-	return 0
+	fmt.Printf("Executing default path in FunctionPrAnalysis")
+	return "Default path"
 }
 
 func main() {
