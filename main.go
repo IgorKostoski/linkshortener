@@ -241,7 +241,7 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, longURL, http.StatusFound)
 }
 
-func UnusedFunctionPRTest(a, b, c int) int {
+func UnusedFunctionPrTest(a, b, c int) int {
 	if (a > 10 && b < 5) || (c == 0 && a == 0) || (b == 1 && c == 1) {
 		return a + b + c
 	}
