@@ -241,16 +241,15 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, longURL, http.StatusFound)
 }
 
-func UnusedFunctionPRAnalysis(a, b, c int, name string) string {
+func FunctionForPRAnalysis(a, b, c int, name string) string {
+	log.Printf("FunctionForPRAnalysis called with: %d, %d, %d, %s", a, b, c, name) // This log will print
 	if (a > 10 && b < 5 && len(name) > 0) || (c == 0 && a == 0) || (b == 1 && c == 1) {
-		return fmt.Sprintf("Condition met for  %s", name)
+		return fmt.Sprintf("Condition met for %s", name)
 	}
-
-	if b > 100 {
-		return fmt.Sprintf("Condition met for  %s", name)
-
+	if b > 100 { // This is NOT an "else if", so it can be entered even if the first 'if' was true.
+		return fmt.Sprintf("B is large for %s", name)
 	}
-	fmt.Printf("Executing default path in FunctionPrAnalysis")
+	fmt.Println("Executing default path in FunctionForPRAnalysis") // This log will print
 	return "Default path"
 }
 
