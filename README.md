@@ -61,21 +61,21 @@ comprehensive demonstration of building, deploying, and monitoring a web applica
 
 ```mermaid
 graph TD
-    User -->|1. POST /shorten (long URL)| GoApp
-    GoApp -->|2. Stores mapping| PostgreSQL
-    GoApp -->|3. Returns short URL| User
+    User -->|"1. POST /shorten (long URL)"| GoApp
+    GoApp -->|"2. Stores mapping"| PostgreSQL
+    GoApp -->|"3. Returns short URL"| User
 
-    User -->|4. GET /{short_code}| GoApp
-    GoApp -->|5. Retrieves long URL| PostgreSQL
-    GoApp -->|6. Redirects (302)| OriginalWebsite
-    GoApp -->|7. Records redirect (metrics)| Prometheus
+    User -->|"4. GET /{short_code}"| GoApp
+    GoApp -->|"5. Retrieves long URL"| PostgreSQL
+    GoApp -->|"6. Redirects (302)"| OriginalWebsite
+    GoApp -->|"7. Records redirect (metrics)"| Prometheus
 
-    CI_CD_Pipeline[GitHub Actions] -->|Builds & Pushes Image| GHCR[GitHub Container Registry]
-    CI_CD_Pipeline -->|Triggers (Simulated)| Ansible
-    Ansible -->|Deploys Stack| UTM_VM[UTM VM (AlmaLinux)]
+    CI_CD_Pipeline["GitHub Actions"] -->|"Builds & Pushes Image"| GHCR["GitHub Container Registry"]
+    CI_CD_Pipeline -->|"Triggers (Simulated)"| Ansible
+    Ansible -->|"Deploys Stack"| UTM_VM["UTM VM (AlmaLinux)"]
 
-    UTM_VM -->|Contains| DockerizedServices[Docker: GoApp, PostgreSQL, Prometheus, Grafana]
-    Prometheus -->|Scrapes /metrics| GoApp
-    Grafana -->|Queries| Prometheus
-    SonarCloud -->|Analyzes| GitHubRepo[GitHub Repository]
-    CI_CD_Pipeline -->|Sends report| SonarCloud
+    UTM_VM -->|"Contains"| DockerizedServices["Docker: GoApp, PostgreSQL, Prometheus, Grafana"]
+    Prometheus -->|"Scrapes /metrics"| GoApp
+    Grafana -->|"Queries"| Prometheus
+    SonarCloud -->|"Analyzes"| GitHubRepo["GitHub Repository"]
+    CI_CD_Pipeline -->|"Sends report"| SonarCloud
