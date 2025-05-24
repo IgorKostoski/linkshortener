@@ -57,9 +57,6 @@ A robust, scalable link shortening service built with Go, leveraging a modern De
 *   **Local VM for Server:** UTM with QEMU (for Apple Silicon)
 
 ## Project Architecture
-
-
-
 ```mermaid
 graph TD
     User -->|1. POST /shorten (long URL)| GoApp
